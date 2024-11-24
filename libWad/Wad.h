@@ -3,17 +3,28 @@
 #include <vector>
 #include <unordered_map>
 using namespace std;
+#define TreeName "WAD"
 
 class TreeNode {
 public:
-    std::string Name;
+    string Name;
     bool isDirectory;
-    std::vector<TreeNode*> children; // Raw pointers to children
+    int length;
+    vector<TreeNode*> children; // Raw pointers to children
+    bool isFirst = false;
 
-    // Constructor
-    TreeNode(const std::string& name, bool Directory) {
-        Name = name;
-        isDirectory = Directory;
+    // Constructor for all other nodes
+    TreeNode(const std::string& name, bool Directory, int length) {
+        this->Name = name;
+        this->isDirectory = Directory;
+        this->length = length;
+    }
+
+    // Constructor for the first node in the tree
+    TreeNode(const std::string& name, bool Directory, bool first) {
+        this->Name = name;
+        this->isDirectory = Directory;
+        this->isFirst = first;
     }
 
     // Destructor - Cleans up all children
@@ -36,7 +47,8 @@ private:
 
 public:
     // Constructor
-    Tree() {
+    Tree(string name) {
+        root = new TreeNode(name, true, true);  // Create a new root node
     }
 
     // Destructor
@@ -73,6 +85,38 @@ public:
     void print() const {
         printTree(root);
     }
+
+    TreeNode* SearchNode(string name, TreeNode* StartN){
+        // traverse the tree
+        for(TreeNode* child : StartN->children){
+            if(child->Name == name){
+                return child;
+            }
+            else{
+                TreeNode* temp = SearchNode(name, child);
+                if(temp != nullptr){
+                    return temp;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    bool VerifyNode(string name, TreeNode* StartN){
+        // traverse the tree
+        for(TreeNode* child : StartN->children){
+            if(child->Name == name){
+                return true;
+            }
+            else{
+                bool temp = VerifyNode(name, child);
+                if(temp){
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 };
 
 class Wad {
@@ -81,6 +125,13 @@ class Wad {
         string magic;
         int DescriptorNum;
         int DescriptorOffset;
+
+        // creating the tree
+        Tree tree = Tree((string)TreeName);
+
+        // Map for all the data to be searched fast
+        unordered_map<string, TreeNode*> map;
+        
 
     public:
         /**
