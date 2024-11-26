@@ -4,6 +4,7 @@
 #include <unordered_map>
 using namespace std;
 #define TreeName "WAD"
+#include <iostream>
 
 class TreeNode {
 public:
@@ -29,10 +30,12 @@ public:
 
     // Destructor - Cleans up all children
     ~TreeNode() {
-        // Delete all child nodes recursively
-        for (auto child : children) {
-            delete child;
-        }
+    // Recursively delete all children
+    for (auto child : children) {
+        delete child;
+        child = nullptr;  // Avoid dangling pointers
+    }
+    children.clear();  // Clear the vector to free memory
     }
 
     // Add a child node to the current node
@@ -127,11 +130,7 @@ class Wad {
         int DescriptorOffset;
 
         // creating the tree
-        Tree tree = Tree((string)TreeName);
-
-        // Map for all the data to be searched fast
-        unordered_map<string, TreeNode*> map;
-        
+        Tree tree = Tree((string)TreeName);        
 
     public:
         /**
@@ -139,6 +138,10 @@ class Wad {
          * Caller must deallocate the memory using the delete keyword.
          */
         static Wad* loadWad(const string &path);
+
+        ~Wad() {
+            // Clean up any dynamically allocated resources here
+        }
 
         /**
          * Returns the magic for this WAD data.
