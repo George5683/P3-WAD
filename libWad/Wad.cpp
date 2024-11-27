@@ -113,6 +113,8 @@ Wad* Wad::loadWad(const string &path) {
         int32_t Element_Offset;
         int32_t Element_Length;
         std::string Element_Name;
+        // set the tempdiroffset to be where we are at in the file
+        int tempdiroff = lseek(wad->fd, 0, SEEK_CUR);
 
         // Read the Element Offset
         ssize_t bytesRead = read(wad->fd, &Element_Offset, sizeof(Element_Offset));
@@ -158,7 +160,7 @@ Wad* Wad::loadWad(const string &path) {
             bool Directory = true;
 
             // Create a new TreeNode
-            TreeNode* Node = new TreeNode(Element_Name, Directory, Element_Length, Element_Offset);
+            TreeNode* Node = new TreeNode(Element_Name, Directory, Element_Length, Element_Offset, tempdiroff);
 
             if (Stack.empty()) {
                 // Add the child to the root
@@ -177,7 +179,7 @@ Wad* Wad::loadWad(const string &path) {
             isdigit(Element_Name[1]) && Element_Name[2] == 'M' &&
             isdigit(Element_Name[3])) {
             // Create a TreeNode
-            TreeNode* Node = new TreeNode(Element_Name, true, Element_Length, Element_Offset);
+            TreeNode* Node = new TreeNode(Element_Name, true, Element_Length, Element_Offset, tempdiroff);
             //cout << "created node for " + Element_Name << endl;
             //cout << "Stack size is: " << Stack.size() << endl;
 
@@ -208,7 +210,7 @@ Wad* Wad::loadWad(const string &path) {
             if (TenCount != 0) {
                 //cout << "TenCount is: " << TenCount << endl;
                 // Create a TreeNode
-                TreeNode* Node = new TreeNode(Element_Name, false, Element_Length, Element_Offset);
+                TreeNode* Node = new TreeNode(Element_Name, false, Element_Length, Element_Offset , tempdiroff);
 
                 // Add the Node to the Node at the top of the stack
                 //cout << "Stack size is: " << Stack.size() << endl;
@@ -225,7 +227,7 @@ Wad* Wad::loadWad(const string &path) {
             }
             else {
                 // Create a TreeNode
-                TreeNode* Node = new TreeNode(Element_Name, false, Element_Length, Element_Offset);
+                TreeNode* Node = new TreeNode(Element_Name, false, Element_Length, Element_Offset, tempdiroff);
 
                 // Check if the stack is empty
                 if (Stack.empty()) {
@@ -550,7 +552,7 @@ int Wad::getContents(const string &path, char *buffer, int length, int offset) {
     return -1;
 }
 
-void Wad::create32bytes(){
+void Wad::create32bytes(int diroff){
 
     // Read the content from the offset to the end of the file
     std::vector<char> buffer;
@@ -558,11 +560,15 @@ void Wad::create32bytes(){
     while (read(fd, &temp, 1) == 1) {
         buffer.push_back(temp);
     }
+    
 
     // Write 32 bytes of zeros in binary
     for (int i = 0; i < 32; i++) {
         write(fd, "\0", 1);
     }
+
+    // go back to the diroff
+    lseek(fd, diroff + 32, SEEK_SET);
 
 
     // Write the previously read content
@@ -632,7 +638,7 @@ void Wad::createDirectory(const string &path){
             name = subparts.front();
 
             // Create a new directory at the root
-            TreeNode* NewNode = new TreeNode(name, true, 0, 0);
+            TreeNode* NewNode = new TreeNode(name, true, 0, 0, 0);
 
             // check if Node has any children
             if(NewNode->children.size() > 0){
@@ -652,7 +658,7 @@ void Wad::createDirectory(const string &path){
             cout << "else if statement" << endl;
             name = subparts.front();
             // Create a new directory
-            TreeNode* Node = new TreeNode(name, true, 0, 0);
+            TreeNode* Node = new TreeNode(name, true, 0, 0, 0);
 
             // Add the Node to the current root
             currentroot->addChild(Node);
@@ -724,37 +730,15 @@ void Wad::createDirectory(const string &path){
         cout << "Bytes written: " << bytes_written << endl;
     }
     else{
-        // reduce the parent path to only be GL from /GL/ or GL/ but it be AD from /GL/AD/ or GL/AD/ or AD from GL/FR/AD/
-        // Remove trailing slash if it exists
-        if (!parentpath.empty() && parentpath.back() == '/') {
-            parentpath.pop_back();
-        }
-
-        // Find the last slash after trimming
-        size_t lastSlashPos = parentpath.find_last_of('/');
-
-        if (lastSlashPos != std::string::npos) {
-            // If there's another slash before the last one, reduce further
-            size_t secondLastSlashPos = parentpath.find_last_of('/', lastSlashPos - 1);
-            if (secondLastSlashPos != std::string::npos) {
-                parentpath = parentpath.substr(secondLastSlashPos + 1, lastSlashPos - secondLastSlashPos - 1);
-            } else {
-                // Keep the part after the first slash if it exists
-                parentpath = parentpath.substr(0, lastSlashPos);
-            }
-        }
-
-        std::cout << "Reduced path: " << parentpath << std::endl;
+        int getoffset = tree.GetDiroffset(parentpath);
+        cout << "Get offset: " << getoffset+16 << endl;
         
-        int val = tree.CountChildren(tree.getRoot());
-        cout << "val: " << val << endl;
         tree.print();
 
-        int start_offset = lseek(fd, -(16*(count+val)), SEEK_END);
-        cout << "Start offset: " << -(16*(count+val)) << endl;
+        int start_offset = lseek(fd, getoffset+16, SEEK_SET);
 
         // create the 32 bytes at the start of the parentpath directory
-        create32bytes();
+        create32bytes(getoffset+16);
 
         // Create a binary buffer
         std::vector<uint8_t> buffer;
@@ -780,9 +764,14 @@ void Wad::createDirectory(const string &path){
         // Add the name followed by "_END" in binary
         buffer.insert(buffer.end(), name.begin(), name.end());
         buffer.insert(buffer.end(), {'_', 'E', 'N', 'D'});
+
         // insert two more bytes of zero
         buffer.insert(buffer.end(), 2, 0x00);
+
+        // go back to the offset 
+        lseek(fd, start_offset, SEEK_SET);
         
+        // Write the buffer to the file
         write(fd, buffer.data(), buffer.size());
     }
     

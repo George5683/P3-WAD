@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <fcntl.h>    // For open
 #include <unistd.h>   // For read and close
+#include <queue>
+#include <sstream>
 using namespace std;
 #define TreeName "WAD"
 #include <iostream>
@@ -12,16 +14,18 @@ public:
     string Name;
     int content_offset;
     bool isDirectory;
+    int Diroffset;
     int length;
     vector<TreeNode*> children; // Raw pointers to children
     bool isFirst = false;
 
     // Constructor for all other nodes
-    TreeNode(const std::string& name, bool Directory, int length, int offset) {
+    TreeNode(const std::string& name, bool Directory, int length, int offset, int Doffset) {
         this->Name = name;
         this->isDirectory = Directory;
         this->length = length;
         this->content_offset = offset;
+        this->Diroffset = Doffset;
     }
 
     // Constructor for the first node in the tree
@@ -146,6 +150,37 @@ public:
         return countnew;
     }
 
+    int GetDiroffset(string path){
+        // Split the path by '/'
+        queue<string> parts;
+        string part;
+        stringstream ss(path);
+
+        // Split the path by '/'
+        while (getline(ss, part, '/')) {
+            if (!part.empty()) {
+                parts.emplace(part);
+            }
+        }
+
+        TreeNode* StartN;
+        while(!parts.empty()){
+            // verify that the front part is a valid directory
+            TreeNode* node = SearchNode(parts.front(), root);
+            if(node == nullptr){
+                return -1;
+            }
+            else if (node->isDirectory && parts.size() == 1){
+                StartN = node;
+                parts.pop();
+            }
+            else{
+                parts.pop();
+            }
+        }
+        return StartN->Diroffset;
+    }
+
 };
 
 class Wad {
@@ -258,6 +293,6 @@ class Wad {
         
         /** Moves the file descriptor byte 16 bytes and adds 16 bytes to the file *
          */
-        void create32bytes();
+        void create32bytes(int diroff);
 };
 
