@@ -1,7 +1,8 @@
-
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <fcntl.h>    // For open
+#include <unistd.h>   // For read and close
 using namespace std;
 #define TreeName "WAD"
 #include <iostream>
@@ -9,16 +10,18 @@ using namespace std;
 class TreeNode {
 public:
     string Name;
+    int content_offset;
     bool isDirectory;
     int length;
     vector<TreeNode*> children; // Raw pointers to children
     bool isFirst = false;
 
     // Constructor for all other nodes
-    TreeNode(const std::string& name, bool Directory, int length) {
+    TreeNode(const std::string& name, bool Directory, int length, int offset) {
         this->Name = name;
         this->isDirectory = Directory;
         this->length = length;
+        this->content_offset = offset;
     }
 
     // Constructor for the first node in the tree
@@ -130,7 +133,12 @@ class Wad {
         int DescriptorOffset;
 
         // creating the tree
-        Tree tree = Tree((string)TreeName);        
+        Tree tree = Tree((string)TreeName); 
+
+        // file path
+        string path;       
+
+        int fd; // File descriptor for the WAD file
 
     public:
         /**
@@ -141,6 +149,7 @@ class Wad {
 
         ~Wad() {
             // Clean up any dynamically allocated resources here
+            close(fd);
         }
 
         /**
@@ -219,5 +228,10 @@ class Wad {
          * @return The number of bytes written, or -1 if not content.
          */
         int writeToFile(const string &path, const char *buffer, int length, int offset = 0);
+        
+        /** Moves the file descriptor byte 16 bytes and adds 16 bytes to the file *
+         * @param offset The offset to start writing at.
+         */
+        void create16bytes(int offset);
 };
 
