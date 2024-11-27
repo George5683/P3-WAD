@@ -123,6 +123,29 @@ public:
         }
         return false;
     }
+
+    // Function that count the number of children in a node
+    int CountChildren(TreeNode* StartN){
+        int countin = 0;
+        // traverse the tree
+        for(TreeNode* child : StartN->children){
+            countin++;
+        }
+        return countin;
+    }
+
+    // Function that count the number of children in a node and their children
+    int CountAllExcept(TreeNode* StartNode, string nameprovided){
+        int countnew = 0;
+        // recursively  use count children to count all children excluding the name or any E number M number
+        for (TreeNode* child : StartNode->children) {
+            if (child->Name != nameprovided && !(child->Name[0] == 'E' && isdigit(child->Name[1]) && child->Name[2] == 'M' && isdigit(child->Name[3]))) {
+                countnew += 1 + CountAllExcept(child, nameprovided);
+            }
+        }
+        return countnew;
+    }
+
 };
 
 class Wad {
@@ -132,11 +155,15 @@ class Wad {
         int DescriptorNum;
         int DescriptorOffset;
 
+        
+        int count = 0;
+
         // creating the tree
         Tree tree = Tree((string)TreeName); 
+        
 
         // file path
-        string path;       
+        string filepath;       
 
         int fd; // File descriptor for the WAD file
 
@@ -230,8 +257,7 @@ class Wad {
         int writeToFile(const string &path, const char *buffer, int length, int offset = 0);
         
         /** Moves the file descriptor byte 16 bytes and adds 16 bytes to the file *
-         * @param offset The offset to start writing at.
          */
-        void create16bytes(int offset);
+        void create32bytes();
 };
 

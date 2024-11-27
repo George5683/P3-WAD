@@ -13,10 +13,10 @@ Wad* Wad::loadWad(const string &path) {
     Wad* wad = new Wad();
 
     // Set the path in wad
-    wad->path = path;
+    wad->filepath = path;
 
-    // Open the WAD file for reading
-    wad->fd = open(path.c_str(), O_RDONLY);
+    // Open the WAD file for reading 
+    wad->fd = open(path.c_str(), O_RDWR);
     // Error Checking Commented Out
     // if (fd == -1) {
     //     cerr << "Error opening WAD file: " << path << endl;
@@ -65,6 +65,7 @@ Wad* Wad::loadWad(const string &path) {
 
     // Read the Descriptor Number
     bytesRead = read(wad->fd, &wad->DescriptorNum, size);
+    cout << "Descriptor Number: " << wad->DescriptorNum << endl;
     // Error Checking Commented Out
     // if (bytesRead != size) {
     //     cerr << "Error reading file descriptors from WAD file: " << path << endl;
@@ -152,6 +153,7 @@ Wad* Wad::loadWad(const string &path) {
         // Checking if the file name ends with _START
         if (Element_Name.find("_START") != string::npos) {
             // Remove the _START from the name
+            cout << "Element Name: " << Element_Name << endl;
             Element_Name = Element_Name.substr(0, Element_Name.size() - 6);
             bool Directory = true;
 
@@ -313,12 +315,12 @@ bool Wad::isDirectory(const string &path){
         TreeNode* currentroot = tree.getRoot();
 
         while (!parts.empty()) {
-
             // Search for the first part to see if the path is a directory
             TreeNode* temp = tree.SearchNode(parts.front(), currentroot);
             
             // If the node is not found, return false
             if(temp == nullptr){
+                cout << "Node is null" << endl;
                 return false;
             }
             // If the node is found, check if it is a directory
@@ -407,8 +409,8 @@ int Wad::getDirectory(const string &path, vector<string> *directory){
     // Split the path by '/'
     queue<string> parts;
     string part;
-    stringstream
-    ss(path);
+    stringstream ss(path);
+    string getname;
 
     while (getline(ss, part, '/')) {
         if (!part.empty()) {
@@ -419,8 +421,19 @@ int Wad::getDirectory(const string &path, vector<string> *directory){
     TreeNode* currentroot = tree.getRoot();
 
     while(!parts.empty()){
+        cout << "Part size: " << parts.size() << endl;
+        
         // Traverse the tree
-        TreeNode* temp = tree.SearchNode(parts.front(), currentroot);
+
+        getname = parts.front();
+        TreeNode* temp = tree.SearchNode(getname, currentroot);
+        if(temp != nullptr){
+            cout << "temp name: " << temp->Name << endl;
+            // print temp children
+            for(TreeNode* child : temp->children){
+                cout << "childs name: " << child->Name << endl;
+            }
+        }
 
         // If the node is not found, return -1
         if(temp == nullptr){
@@ -430,13 +443,22 @@ int Wad::getDirectory(const string &path, vector<string> *directory){
         else{
             if(parts.size() == 1 && temp->isDirectory){
                 // Add the children to the directory
-                for(auto child : temp->children){
+                if(temp->children.size() > 0){
+                    for(TreeNode* child : temp->children){
+                        
                     //cout << "childs name added to directory: " << child->Name << endl;
+                    // if(child->Name == "" ){
+                    //     continue;
+                    // }
                     directory->push_back(child->Name);
+                    
+                    }
                 }
-
-                // Return the number of children
-                return temp->children.size();
+                
+                // Return the size of directory
+                cout << "Directory size: " << directory->size() << endl;
+                parts.pop();
+                return directory->size();
             }
             else if(temp->isDirectory){
                 currentroot = temp;
@@ -528,13 +550,7 @@ int Wad::getContents(const string &path, char *buffer, int length, int offset) {
     return -1;
 }
 
-void Wad::create16bytes(int offset){
-    // Seek to the offset
-    int lseek_offset = lseek(fd, offset, SEEK_SET);
-    if (lseek_offset == -1) {
-        perror("lseek");
-        return;
-    }
+void Wad::create32bytes(){
 
     // Read the content from the offset to the end of the file
     std::vector<char> buffer;
@@ -543,36 +559,24 @@ void Wad::create16bytes(int offset){
         buffer.push_back(temp);
     }
 
-    // Move the file pointer to the new position (offset + 16)
-    lseek_offset = lseek(fd, offset + 16, SEEK_SET);
-    if (lseek_offset == -1) {
-        perror("lseek");
-        return;
+    // Write 32 bytes of zeros in binary
+    for (int i = 0; i < 32; i++) {
+        write(fd, "\0", 1);
     }
+
 
     // Write the previously read content
-    if (!buffer.empty()) {
-        write(fd, buffer.data(), buffer.size());
+    while(!buffer.empty()){
+        write(fd, &buffer.front(), 1);
+        buffer.erase(buffer.begin());
     }
-
-    // Move the file pointer back to the original offset
-    lseek_offset = lseek(fd, offset, SEEK_SET);
-    if (lseek_offset == -1) {
-        perror("lseek");
-        return;
-    }
-
-    // Write 16 bytes
-    std::string sixteen = "0000000000000000";
-    write(fd, sixteen.c_str(), sixteen.size());
 }
 
 void Wad::createDirectory(const string &path){
     // Split the path by '/'
-    queue<string> parts;
+    queue<string> subparts;
     string part;
-    stringstream
-    ss(path);
+    stringstream ss(path);
     
     if(path == "" || path == "/"){
         return;
@@ -580,11 +584,11 @@ void Wad::createDirectory(const string &path){
 
     while (getline(ss, part, '/')) {
         if (!part.empty()) {
-            parts.emplace(part);
+            subparts.emplace(part);
         }
     }
     //cout << parts.front() << endl;
-    int initialpartsize = parts.size();
+    int initialpartsize = subparts.size();
     // Getting the root
     TreeNode* currentroot = tree.getRoot();
     string name;
@@ -592,10 +596,9 @@ void Wad::createDirectory(const string &path){
     string parentpath;
 
     // copy parts to a new queue
-    queue<string> parts2 = parts;
+    queue<string> parts2 = subparts;
 
-    int count = 0;
-    if(parts.size() > 1){
+    if(parts2.size() > 1){
         // set parentpath
         while(!parts2.empty()){
             parentpath += parts2.front() + "/";
@@ -609,104 +612,188 @@ void Wad::createDirectory(const string &path){
                 parts2.pop();
             }
         }
+        cout << "Parent path: " << parentpath << endl;
     }
 
     // Traverse the tree
-    while (!parts.empty()) {
-        cout << "front of parts: " << parts.front() << endl;
+    while (!subparts.empty()) {
+        cout << "parts size: " << subparts.size() << endl;
+        cout << "front of parts: " << subparts.front() << endl;
         // Checking if the front of parts has a string size greater than 2
-        if(parts.front().size() > 2){
+        if(subparts.front().size() > 2){
             cout << "The size of the string is greater than 2" << endl;
             return;
-        }
+        }   
+        name = subparts.front();
         // Search for the first part to see if the path is a directory
-        TreeNode* temp = tree.SearchNode(parts.front(), currentroot);
+        TreeNode* temp = tree.SearchNode(name, currentroot);
         // If the node is not found, and its the last part
         if (temp == nullptr && initialpartsize == 1) {
-            name = parts.front();
+            name = subparts.front();
 
             // Create a new directory at the root
-            TreeNode* Node = new TreeNode(parts.front(), true, 0, 0);
+            TreeNode* NewNode = new TreeNode(name, true, 0, 0);
+
+            // check if Node has any children
+            if(NewNode->children.size() > 0){
+                for(TreeNode* child : NewNode->children){
+                    cout << "New Child: " << child->Name << endl;
+                }
+            }
 
             // Add the Node to the root
-            tree.addChildToRoot(Node);
+            tree.addChildToRoot(NewNode);
 
             // pop the part
-            parts.pop();            
+            subparts.pop();   
+            cout << "first if statement" << endl;       
         }
-        else if (temp == nullptr && parts.size() == 1) {
-            name = parts.front();
+        else if (temp == nullptr && subparts.size() == 1 && initialpartsize != 1) {
+            cout << "else if statement" << endl;
+            name = subparts.front();
             // Create a new directory
-            TreeNode* Node = new TreeNode(parts.front(), true, 0, 0);
+            TreeNode* Node = new TreeNode(name, true, 0, 0);
 
             // Add the Node to the current root
             currentroot->addChild(Node);
 
             // pop the part
-            parts.pop();
+            subparts.pop();
         }
         // If the node is found, check if it is a directory
         else {
-            if (!temp->isDirectory) {
+            if (temp->isDirectory) {
+                currentroot = temp;
+                subparts.pop();
+            }
+            else if (!temp->isDirectory) {
                 return;
             }
-            else if (temp->isDirectory) {
-                currentroot = temp;
-                parts.pop();
-            }
         }
     }
 
-    // if the inital size is 1, add the _START and _END to the root
+    // if the inital size is 1, add the _START and _END to the file
+    cout << "Initial part size: " << initialpartsize << endl;
     if(initialpartsize == 1){
-        // create the bytes at the end of the file
-        create16bytes(DescriptorOffset + DescriptorNum * 16);
-        create16bytes(DescriptorOffset + DescriptorNum * 16 + 16);
-
         // seeking the file to the end
-        int offset = lseek(fd, DescriptorOffset + DescriptorNum*16, SEEK_SET);
+        int offset = lseek(fd, (DescriptorOffset + (16*DescriptorNum)), SEEK_SET);
+        if(offset == -1){
+            cout << "Problem with offset for _START" << endl;
+        }
 
-        // create a buffer with the first few bytes a zero followed by the <name>_START
-        string buffer;
-        if(name.size() == 1){
-            buffer = "000000000" + name + "_START"
-            + "00000000000" + name + "_END";
+        // Create a binary buffer
+        std::vector<uint8_t> buffer;
+
+        // Fill the buffer with zeros followed by the binary representation of <name>_START and <name>_END
+        if (name.size() == 1) {
+            buffer.insert(buffer.end(), 9, 0x00); // Add 9 zeros
+        } else if (name.size() == 2) {
+            buffer.insert(buffer.end(), 8, 0x00); // Add 8 zeros
         }
-        else if(name.size() == 2){
-            buffer = "00000000" + name + "_START"
-            + "0000000000" + name + "_END";
+
+        // Add the name followed by "_START" in binary
+        buffer.insert(buffer.end(), name.begin(), name.end());
+        buffer.insert(buffer.end(), {'_', 'S', 'T', 'A', 'R', 'T'});
+
+        // Add more zeros
+        if (name.size() == 1) {
+            buffer.insert(buffer.end(), 9, 0x00); // Add 9 zeros
+        } else if (name.size() == 2) {
+            buffer.insert(buffer.end(), 8, 0x00); // Add 8 zeros
         }
-        
-        write(fd, buffer.c_str(), buffer.size());
+
+        // Add the name followed by "_END" in binary
+        buffer.insert(buffer.end(), name.begin(), name.end());
+        buffer.insert(buffer.end(), {'_', 'E', 'N', 'D'});
+
+        // insert two more bytes of zero
+        buffer.insert(buffer.end(), 2, 0x00);
+
+        // Print the buffer for debugging
+        // std::cout << "Buffer is: ";
+        // for (uint8_t byte : buffer) {
+        //     std::cout << std::hex << static_cast<int>(byte) << " ";
+        // }
+        // std::cout << std::dec << std::endl; // Switch back to decimal output
+
+        // Write the buffer to the file
+        ssize_t bytes_written = write(fd, buffer.data(), buffer.size());
+        if (bytes_written == -1) {
+            perror("Failed to write to file");
+        }
+        cout << "Bytes written: " << bytes_written << endl;
     }
     else{
-        // search the tree for the path
-        int start_offset = lseek(fd, -(16*count), SEEK_END);
-        int end_offset = lseek(fd, -(16*(count-1)), SEEK_END);
-
-        // create the 16 bytes at the start of the parentpath directory
-        create16bytes(start_offset);
-        create16bytes(end_offset);
-
-        // seeking the file to the end
-        int offset = lseek(fd, -(16*count), SEEK_END);
-
-        // create a buffer with the first few bytes a zero followed by the <name>_START
-        string buffer;
-        if(name.size() == 1){
-            buffer = "000000000" + name + "_START"
-            + "00000000000" + name + "_END";
+        // reduce the parent path to only be GL from /GL/ or GL/ but it be AD from /GL/AD/ or GL/AD/ or AD from GL/FR/AD/
+        // Remove trailing slash if it exists
+        if (!parentpath.empty() && parentpath.back() == '/') {
+            parentpath.pop_back();
         }
-        else if(name.size() == 2){
-            buffer = "00000000" + name + "_START"
-            + "0000000000" + name + "_END";
+
+        // Find the last slash after trimming
+        size_t lastSlashPos = parentpath.find_last_of('/');
+
+        if (lastSlashPos != std::string::npos) {
+            // If there's another slash before the last one, reduce further
+            size_t secondLastSlashPos = parentpath.find_last_of('/', lastSlashPos - 1);
+            if (secondLastSlashPos != std::string::npos) {
+                parentpath = parentpath.substr(secondLastSlashPos + 1, lastSlashPos - secondLastSlashPos - 1);
+            } else {
+                // Keep the part after the first slash if it exists
+                parentpath = parentpath.substr(0, lastSlashPos);
+            }
         }
+
+        std::cout << "Reduced path: " << parentpath << std::endl;
         
-        write(fd, buffer.c_str(), buffer.size());
+        int val = tree.CountChildren(tree.getRoot());
+        cout << "val: " << val << endl;
+        tree.print();
+
+        int start_offset = lseek(fd, -(16*(count+val)), SEEK_END);
+        cout << "Start offset: " << -(16*(count+val)) << endl;
+
+        // create the 32 bytes at the start of the parentpath directory
+        create32bytes();
+
+        // Create a binary buffer
+        std::vector<uint8_t> buffer;
+
+        // Fill the buffer with zeros followed by the binary representation of <name>_START and <name>_END
+        if (name.size() == 1) {
+            buffer.insert(buffer.end(), 9, 0x00); // Add 9 zeros
+        } else if (name.size() == 2) {
+            buffer.insert(buffer.end(), 8, 0x00); // Add 8 zeros
+        }
+
+        // Add the name followed by "_START" in binary
+        buffer.insert(buffer.end(), name.begin(), name.end());
+        buffer.insert(buffer.end(), {'_', 'S', 'T', 'A', 'R', 'T'});
+
+        // Add more zeros
+        if (name.size() == 1) {
+            buffer.insert(buffer.end(), 9, 0x00); // Add 9 zeros
+        } else if (name.size() == 2) {
+            buffer.insert(buffer.end(), 8, 0x00); // Add 8 zeros
+        }
+
+        // Add the name followed by "_END" in binary
+        buffer.insert(buffer.end(), name.begin(), name.end());
+        buffer.insert(buffer.end(), {'_', 'E', 'N', 'D'});
+        // insert two more bytes of zero
+        buffer.insert(buffer.end(), 2, 0x00);
+        
+        write(fd, buffer.data(), buffer.size());
     }
     
-    // Increment the DescriptorNum 
+    // Increment the DescriptorNum by 2 on the file
+    int off = lseek(fd, 4, SEEK_SET);
     DescriptorNum += 2;
+    write(fd, &DescriptorNum, 4);
+    
+
+    // reset count
+    count = 0;
 }
 
 void Wad::createFile(const string &path){

@@ -32,6 +32,20 @@ const std::string setupWorkspace(){
         return test_wad_path;
 }
 
+string copy(string wad_path){
+        
+        const std::string test_wad_path = "./testfiles/new.wad";
+
+        std::string command = "cp " + wad_path + " " + test_wad_path;
+        int returnCode = system(command.c_str());
+
+        if(returnCode == EXIT_FAILURE){
+                throw("Copy failure");
+        }
+
+        return test_wad_path;
+}
+
 
 TEST(LibReadTests, getMagic){
         std::string wad_path = setupWorkspace();
@@ -440,11 +454,15 @@ TEST(LibWriteTests, createDirectoryTest1){
         //Deleting and reinitiating object
         delete testWad;
         testWad = Wad::loadWad(wad_path);
+        cout << testWad->isDirectory(testPath) << endl;
+
 
         ASSERT_TRUE(testWad->isDirectory(testPath));
         ASSERT_FALSE(testWad->isContent(testPath));
 
         testVector.clear();
+        
+        
         ret = testWad->getDirectory(testPath, &testVector);
         ASSERT_EQ(ret, 0);
         ASSERT_EQ(testVector.size(), 0);
@@ -491,6 +509,7 @@ TEST(LibWriteTests, createDirectoryTest2){
         //Deleting and reinitiating object
         delete testWad;
         testWad = Wad::loadWad(wad_path);
+        copy(wad_path);
 
         ASSERT_TRUE(testWad->isDirectory(testPath));
         ASSERT_FALSE(testWad->isContent(testPath));

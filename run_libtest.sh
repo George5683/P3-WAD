@@ -40,8 +40,8 @@ setup(){
 }
 
 run(){
-    echo "Running tests..."
-    ./libtest.out
+    echo "Running tests with Valgrind..."
+    valgrind --leak-check=full --track-origins=yes ./libtest.out
 }
 
 main(){
