@@ -5,6 +5,7 @@
 #include <unistd.h>   // For read and close
 #include <queue>
 #include <sstream>
+#include <functional>
 using namespace std;
 #define TreeName "WAD"
 #include <iostream>
@@ -54,6 +55,7 @@ public:
 class Tree {
 private:
     TreeNode* root;  // Root node of the tree
+    unordered_map<string, TreeNode*> NodeMap;  // Map of node names to nodes
 
 public:
     // Constructor
@@ -96,89 +98,76 @@ public:
         printTree(root);
     }
 
-    TreeNode* SearchNode(string name, TreeNode* StartN){
-        // traverse the tree
-        for(TreeNode* child : StartN->children){
-            if(child->Name == name){
-                return child;
+    void BuildMap() {
+    // Helper function for recursive traversal
+    function<void(TreeNode*, string)> build = [&](TreeNode* node, string path) {
+        NodeMap[path] = node; // Add the node to the map with the adjusted path
+        for (TreeNode* child : node->children) {
+            string childPath = path.empty() ? child->Name : path + "/" + child->Name;
+            build(child, childPath);
+        }
+    };
+
+    // Start building the map from root's children without including "root" in the path
+    for (TreeNode* child : root->children) {
+        build(child, child->Name);
+    }
+    }
+
+    // Function that searches the map for the node
+    TreeNode* SearchMap(string &path){
+        // Setting the node to nothing
+        TreeNode* FoundNode = nullptr;
+
+        // Search the map 
+        auto it = NodeMap.find(path);
+        if(it != NodeMap.end()){
+            FoundNode = it->second;
+        }
+        // return the found node
+        return FoundNode;
+    }
+
+    // Function to insert into the Node map
+    void InsertIntoMap(string path, TreeNode* node){
+        NodeMap.insert({path, node});
+    }
+
+    // Function to count all directories in the tree starting from a given node, excluding the current node
+    int countDirectories(TreeNode* node) {
+        int count = 0;
+        for (TreeNode* child : node->children) {
+            if (child->isDirectory) {
+                count++;
+                count += countDirectories(child);
+            }
+        }
+        return count;
+    }
+
+    // Function to count all content (non-directory nodes) in the tree starting from a given node, excluding the current node
+    int countContent(TreeNode* node) {
+        int count = 0;
+        for (TreeNode* child : node->children) {
+            if (!child->isDirectory) {
+                count++;
             }
             else{
-                TreeNode* temp = SearchNode(name, child);
-                if(temp != nullptr){
-                    return temp;
-                }
+                count += countContent(child);
             }
+            
         }
-        return nullptr;
-    }
-
-    bool VerifyNode(string name, TreeNode* StartN){
-        // traverse the tree
-        for(TreeNode* child : StartN->children){
-            if(child->Name == name){
-                return true;
-            }
-            else{
-                bool temp = VerifyNode(name, child);
-                if(temp){
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // Function that count the number of children in a node
-    int CountChildren(TreeNode* StartN){
-        int countin = 0;
-        // traverse the tree
-        for(TreeNode* child : StartN->children){
-            countin++;
-        }
-        return countin;
-    }
-
-    // Function that count the number of children in a node and their children
-    int CountAllExcept(TreeNode* StartNode, string nameprovided){
-        int countnew = 0;
-        // recursively  use count children to count all children excluding the name or any E number M number
-        for (TreeNode* child : StartNode->children) {
-            if (child->Name != nameprovided && !(child->Name[0] == 'E' && isdigit(child->Name[1]) && child->Name[2] == 'M' && isdigit(child->Name[3]))) {
-                countnew += 1 + CountAllExcept(child, nameprovided);
-            }
-        }
-        return countnew;
+        return count;
     }
 
     int GetDiroffset(string path){
-        // Split the path by '/'
-        queue<string> parts;
-        string part;
-        stringstream ss(path);
+        return -1;
+    }
 
-        // Split the path by '/'
-        while (getline(ss, part, '/')) {
-            if (!part.empty()) {
-                parts.emplace(part);
-            }
+    void PrintMap(){
+        for(auto it = NodeMap.begin(); it != NodeMap.end(); it++){
+            cout << it->first << " " << it->second->Name << endl;
         }
-
-        TreeNode* StartN;
-        while(!parts.empty()){
-            // verify that the front part is a valid directory
-            TreeNode* node = SearchNode(parts.front(), root);
-            if(node == nullptr){
-                return -1;
-            }
-            else if (node->isDirectory && parts.size() == 1){
-                StartN = node;
-                parts.pop();
-            }
-            else{
-                parts.pop();
-            }
-        }
-        return StartN->Diroffset;
     }
 
 };
@@ -189,9 +178,6 @@ class Wad {
         string magic;
         int DescriptorNum;
         int DescriptorOffset;
-
-        
-        int count = 0;
 
         // creating the tree
         Tree tree = Tree((string)TreeName); 
@@ -294,5 +280,7 @@ class Wad {
         /** Moves the file descriptor byte 16 bytes and adds 16 bytes to the file *
          */
         void create32bytes(int diroff);
+
+        void UpdateFileDescriptorOffsets();
 };
 
