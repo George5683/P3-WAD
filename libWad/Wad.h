@@ -85,7 +85,7 @@ public:
 
     // Print the tree (simple DFS traversal)
     void printTree(TreeNode* node, int level = 0) const {
-        std::cout << std::string(level, ' ') << node->Name << std::endl;
+        std::cout << std::string(level, ' ') << node->Name << " " << node->Diroffset << std::endl;
 
         // Recurse through children
         for (const auto& child : node->children) {
@@ -276,11 +276,7 @@ class Wad {
          * @return The number of bytes written, or -1 if not content.
          */
         int writeToFile(const string &path, const char *buffer, int length, int offset = 0);
-        
-        /** Moves the file descriptor byte 16 bytes and adds 16 bytes to the file *
-         */
-        void create32bytes(int diroff);
 
-        void UpdateFileDescriptorOffsets();
+        void loadDiroffsets();
 };
 
