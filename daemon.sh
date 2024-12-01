@@ -5,4 +5,4 @@ cd ..
 cd wadfs 
 make 
 cd .. 
-./wadfs/wadfs -d -s /Test/sample1.wad mountdir/
+sudo ./wadfs/wadfs -d -s sample1.wad mountdir/

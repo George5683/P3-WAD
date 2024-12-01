@@ -273,7 +273,7 @@ Wad* Wad::loadWad(const string &path) {
         }
     }
     // print the whole tree
-    //wad->tree.print();
+    wad->tree.print();
     //cout << endl;
 
     // Build the map from the tree

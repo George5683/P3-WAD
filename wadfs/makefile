@@ -3,6 +3,3 @@ compile: wadfs.o ../libWad/Wad.o
 
 wadfs.o: wadfs.cpp
 	 g++ -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -c wadfs.cpp
-
-../libWad/Wad.o: ../libWad/Wad.cpp
-	 g++ -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 -c ../libWad/Wad.cpp
