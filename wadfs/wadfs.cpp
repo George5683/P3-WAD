@@ -2,6 +2,7 @@
 #include <string>
 #include <fuse.h>
 #include <unistd.h>
+#include <fuse/fuse.h>
 #include <time.h>
 #include <vector>
 #include <cstring>
@@ -13,17 +14,9 @@
 
 using namespace std;
 
-Wad* wad; // Global pointer to Wad object
-
 static int wadfs_getattr(const char *path, struct stat *stbuf) {
     memset(stbuf, 0, sizeof(struct stat));
     
-    if (string(path) == WADFS_ROOT_DIR) {
-        stbuf->st_mode = S_IFDIR | 0777;
-        stbuf->st_nlink = 2;
-        return 0;
-    }
-
     if (wad->isDirectory(path)) {
         stbuf->st_mode = S_IFDIR | 0777;
         stbuf->st_nlink = 2;
@@ -40,7 +33,7 @@ static int wadfs_getattr(const char *path, struct stat *stbuf) {
 
 static int wadfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
     if (!wad->isDirectory(path)) {
-        return -ENOENT;
+        return -1;
     }
 
     vector<string> entries;
@@ -114,12 +107,14 @@ int main(int argc, char *argv[]) {
         wadPath = string(get_current_dir_name()) + "/" + wadPath;
     }
 
-    Wad* myWad = Wad::loadWad(wadPath);
+    cout << "Loading WAD file: " << wadPath << endl;
+
+    Wad* Wad = Wad::loadWad(wadPath);
 
     argv[argc - 2] = argv[argc - 1];
     argc--;
 
 
     // Run the FUSE main loop
-    return fuse_main(argc, argv, &wadfs_operations, myWad);
+    return fuse_main(argc, argv, &wadfs_operations, Wad);
 }

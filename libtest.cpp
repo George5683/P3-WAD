@@ -509,7 +509,7 @@ TEST(LibWriteTests, createDirectoryTest2){
         //Deleting and reinitiating object
         delete testWad;
         testWad = Wad::loadWad(wad_path);
-        copy(wad_path);
+       
 
         ASSERT_TRUE(testWad->isDirectory(testPath));
         ASSERT_FALSE(testWad->isContent(testPath));
